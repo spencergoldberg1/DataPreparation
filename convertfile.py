@@ -20,15 +20,11 @@ def read_schema(schema_file_path):
                 name, attr_type = line.split(':')
                 attributes[name.strip()] = attr_type.strip()
             elif current_section == "rules" and ':' in line:
+                # Assuming rules indicate classification
                 name, rule = line.split(':', 1)
                 rules[name.strip()] = rule.strip()
 
     return attributes, rules
-
-def apply_rule(rule, data_value):
-    # Assuming data_value is the value for 'FAULTS'
-    faults = int(data_value)
-    return 'fp' if faults >= 3 else 'nfp'
 
 def convert_to_arff(dat_file_path, attributes, rules):
     with open(dat_file_path, 'r') as file:
@@ -37,8 +33,14 @@ def convert_to_arff(dat_file_path, attributes, rules):
     processed_lines = []
     for line in lines:
         data_values = line.strip().split()
-        # Apply rule to the last value (assuming it's 'FAULTS')
-        data_values[-1] = apply_rule(rules.get('CLASS', ''), data_values[-1])
+
+        # Check if rules are present, indicating classification
+        is_classification = bool(rules)
+        if is_classification:
+            # Example rule application (for illustration, adjust as needed)
+            faults = int(data_values[-1])  # Assuming 'FAULTS' is the last column
+            class_label = 'nfp' if faults < 3 else 'fp'
+            data_values.append(class_label)  # Append class label
 
         processed_line = ','.join(data_values)
         processed_lines.append(processed_line)
@@ -50,12 +52,16 @@ def convert_to_arff(dat_file_path, attributes, rules):
         file.write('@relation data\n\n')
         for attr, attr_type in attributes.items():
             file.write(f'@attribute {attr} {attr_type}\n')
+        if is_classification:
+            file.write('@attribute class {nfp, fp}\n')
         file.write('\n@data\n')
         file.write('\n'.join(processed_lines))
 
     return arff_file_path
 
 def process_folder():
+    os.environ['TK_SILENCE_DEPRECATION'] = '1'
+
     root = tk.Tk()
     root.withdraw()
 
@@ -83,7 +89,7 @@ def process_folder():
                 if result.endswith('.arff'):
                     print(f"Converted {filename} to {result.split('/')[-1]}")
                 else:
-                    print(result)  # Prints the error message
+                    print("Conversion failed for:", filename)
             else:
                 print(f"File not found: {filename}")
     except Exception as e:
